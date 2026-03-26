@@ -6,6 +6,7 @@ import json
 import re
 
 from schemas.reconcile import ReconciledMedication
+from schemas.validate import QualityScore
 
 
 class LLMParseError(Exception):
@@ -35,5 +36,35 @@ def parse_reconciliation_response(raw: str) -> ReconciledMedication:
 
     try:
         return ReconciledMedication.model_validate(data)
+    except Exception as exc:
+        raise LLMParseError(f"Schema validation failed: {exc}") from exc
+
+
+def parse_validation_response(raw: str) -> QualityScore:
+    """Parse raw LLM text into a validated QualityScore."""
+    json_str = _extract_json(raw)
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError as exc:
+        raise LLMParseError(f"Invalid JSON: {exc}") from exc
+
+    # Map LLM output to our schema (add grade from overall_score)
+    overall = data.get("overall_score", 0)
+    if overall >= 90:
+        grade = "A"
+    elif overall >= 80:
+        grade = "B"
+    elif overall >= 70:
+        grade = "C"
+    elif overall >= 60:
+        grade = "D"
+    else:
+        grade = "F"
+
+    data["grade"] = grade
+
+    # Rename issues_detected to match schema if already correct
+    try:
+        return QualityScore.model_validate(data)
     except Exception as exc:
         raise LLMParseError(f"Schema validation failed: {exc}") from exc

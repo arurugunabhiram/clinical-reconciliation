@@ -1,6 +1,11 @@
 import pytest
 
-from llm.parser import parse_reconciliation_response, LLMParseError, _extract_json
+from llm.parser import (
+    parse_reconciliation_response,
+    parse_validation_response,
+    LLMParseError,
+    _extract_json,
+)
 from schemas.reconcile import SafetyStatus
 
 
@@ -62,3 +67,46 @@ def test_extract_json_bare_object():
 def test_extract_json_fenced():
     text = "```json\n{\"a\": 1}\n```"
     assert _extract_json(text) == '{"a": 1}'
+
+
+# ── Validation parser tests ──────────────────────────────────────────
+
+_VALID_VALIDATION_JSON = '''{
+  "overall_score": 62,
+  "breakdown": {
+    "completeness": 60,
+    "accuracy": 50,
+    "timeliness": 70,
+    "clinical_plausibility": 40
+  },
+  "issues_detected": [
+    {
+      "field": "vital_signs.blood_pressure",
+      "issue": "Systolic BP 340 is clinically impossible",
+      "severity": "high"
+    }
+  ]
+}'''
+
+
+def test_parse_validation_valid_json():
+    result = parse_validation_response(_VALID_VALIDATION_JSON)
+    assert result.overall_score == 62
+    assert result.breakdown.completeness == 60
+    assert result.breakdown.accuracy == 50
+    assert result.breakdown.timeliness == 70
+    assert result.breakdown.clinical_plausibility == 40
+    assert result.grade == "D"
+    assert len(result.issues_detected) == 1
+
+
+def test_parse_validation_assigns_grade():
+    high_score = _VALID_VALIDATION_JSON.replace('"overall_score": 62', '"overall_score": 92')
+    result = parse_validation_response(high_score)
+    assert result.grade == "A"
+
+
+def test_parse_validation_rejects_missing_breakdown():
+    bad = '{"overall_score": 50, "issues_detected": []}'
+    with pytest.raises(LLMParseError, match="Schema validation failed"):
+        parse_validation_response(bad)
