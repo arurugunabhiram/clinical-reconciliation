@@ -10,8 +10,14 @@ import anthropic
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from schemas.reconcile import MedicationSource, PatientContext, ReconciledMedication
-from llm.prompts import RECONCILIATION_SYSTEM, build_reconciliation_user_prompt
-from llm.parser import parse_reconciliation_response
+from schemas.validate import PatientRecord, QualityScore
+from llm.prompts import (
+    RECONCILIATION_SYSTEM,
+    VALIDATION_SYSTEM,
+    build_reconciliation_user_prompt,
+    build_validation_user_prompt,
+)
+from llm.parser import parse_reconciliation_response, parse_validation_response
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +55,36 @@ def _format_patient_context(ctx: PatientContext) -> str:
     return "\n".join(parts) if parts else "No additional context provided."
 
 
+def _format_patient_record(record: PatientRecord) -> str:
+    parts: list[str] = []
+    if record.patient_id:
+        parts.append(f"Patient ID: {record.patient_id}")
+    if record.first_name or record.last_name:
+        parts.append(f"Name: {record.first_name or ''} {record.last_name or ''}".strip())
+    if record.date_of_birth:
+        parts.append(f"Date of Birth: {record.date_of_birth}")
+    if record.gender:
+        parts.append(f"Gender: {record.gender}")
+    if record.medications:
+        meds = json.dumps(record.medications, default=str)
+        parts.append(f"Medications: {meds}")
+    if record.diagnoses:
+        parts.append(f"Diagnoses: {', '.join(record.diagnoses)}")
+    if record.allergies:
+        parts.append(f"Allergies: {', '.join(record.allergies)}")
+    else:
+        parts.append("Allergies: (none documented)")
+    if record.vital_signs:
+        vitals = json.dumps(record.vital_signs, default=str)
+        parts.append(f"Vital Signs: {vitals}")
+    if record.lab_results:
+        labs = ", ".join(f"{k}={v}" for k, v in record.lab_results.items())
+        parts.append(f"Lab Results: {labs}")
+    if record.last_updated:
+        parts.append(f"Last Updated: {record.last_updated}")
+    return "\n".join(parts) if parts else "Empty record."
+
+
 @retry(
     retry=retry_if_exception_type((anthropic.APIConnectionError, anthropic.RateLimitError)),
     wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -77,3 +113,16 @@ def llm_reconcile(
     logger.info("Calling LLM for medication reconciliation")
     raw = _call_anthropic(RECONCILIATION_SYSTEM, user_prompt)
     return parse_reconciliation_response(raw)
+
+
+def llm_validate(record: PatientRecord) -> QualityScore:
+    """Call the LLM to evaluate data quality across four dimensions."""
+    from datetime import date as _date
+
+    record_json = record.model_dump_json(indent=2)
+    current_date = _date.today().isoformat()
+    user_prompt = build_validation_user_prompt(record_json, current_date)
+
+    logger.info("Calling LLM for data quality validation")
+    raw = _call_anthropic(VALIDATION_SYSTEM, user_prompt)
+    return parse_validation_response(raw)
