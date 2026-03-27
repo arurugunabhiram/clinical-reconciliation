@@ -1,0 +1,120 @@
+{
+  "examples": [
+    {
+      "title": "Aspirin dose disagreement across 3 sources",
+      "endpoint": "POST /api/reconcile",
+      "payload": {
+        "patient_id": "PT-1001",
+        "sources": [
+          {
+            "source_name": "Hospital EHR",
+            "drug_name": "Aspirin",
+            "dose": "81mg",
+            "frequency": "once daily",
+            "last_updated": "2025-12-01",
+            "reliability": "high"
+          },
+          {
+            "source_name": "Pharmacy System",
+            "drug_name": "Aspirin",
+            "dose": "325mg",
+            "frequency": "once daily",
+            "last_updated": "2025-11-20",
+            "reliability": "high"
+          },
+          {
+            "source_name": "Patient Self-Report",
+            "drug_name": "Aspirin",
+            "dose": "81mg",
+            "frequency": "every other day",
+            "last_updated": "2025-10-15",
+            "reliability": "low"
+          }
+        ],
+        "patient_context": {
+          "age": 68,
+          "conditions": ["Coronary Artery Disease", "Hypertension"],
+          "allergies": [],
+          "lab_values": {}
+        }
+      }
+    },
+    {
+      "title": "Metformin with low eGFR (drug-disease contraindication)",
+      "endpoint": "POST /api/reconcile",
+      "payload": {
+        "patient_id": "PT-2002",
+        "sources": [
+          {
+            "source_name": "Primary Care EHR",
+            "drug_name": "Metformin",
+            "dose": "1000mg",
+            "frequency": "twice daily",
+            "last_updated": "2025-12-10",
+            "reliability": "high"
+          },
+          {
+            "source_name": "Endocrinology Clinic",
+            "drug_name": "Metformin",
+            "dose": "1000mg",
+            "frequency": "twice daily",
+            "last_updated": "2025-12-08",
+            "reliability": "high"
+          }
+        ],
+        "patient_context": {
+          "age": 72,
+          "conditions": ["Type 2 Diabetes", "CKD Stage 4"],
+          "allergies": ["Sulfa drugs"],
+          "lab_values": {
+            "eGFR": "22 mL/min",
+            "HbA1c": "7.8%",
+            "Creatinine": "2.9 mg/dL"
+          }
+        }
+      }
+    },
+    {
+      "title": "Patient portal denial vs pharmacy fill (data quality validation)",
+      "endpoint": "POST /api/validate",
+      "payload": {
+        "record": {
+          "patient_id": "PT-3003",
+          "first_name": "Maria",
+          "last_name": "Santos",
+          "date_of_birth": "1955-08-14",
+          "gender": "Female",
+          "medications": [
+            {
+              "drug_name": "Lisinopril",
+              "dose": "20mg",
+              "frequency": "once daily",
+              "source": "Pharmacy fill record",
+              "status": "active"
+            },
+            {
+              "drug_name": "Atorvastatin",
+              "dose": "40mg",
+              "frequency": "once daily",
+              "source": "Patient portal - patient denies taking",
+              "status": "disputed"
+            }
+          ],
+          "diagnoses": ["Hypertension", "Hyperlipidemia", "Osteoarthritis"],
+          "allergies": ["Penicillin"],
+          "vital_signs": {
+            "blood_pressure": "142/88",
+            "heart_rate": "76",
+            "temperature": "98.6"
+          },
+          "lab_results": {
+            "LDL": "165 mg/dL",
+            "Total Cholesterol": "248 mg/dL",
+            "eGFR": "68 mL/min"
+          },
+          "last_updated": "2025-06-01"
+        }
+      }
+    }
+  ]
+}

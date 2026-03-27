@@ -1,6 +1,6 @@
 from datetime import date
 
-from core.reconciler import reconcile_medications, _sources_agree, _base_confidence
+from core.reconciler import reconcile_medications, sources_agree, _base_confidence
 from schemas.reconcile import MedicationSource, PatientContext, SourceReliability, SafetyStatus
 
 
@@ -14,12 +14,12 @@ def _src(name="EHR", drug="Metformin", dose="500mg", freq="twice daily",
 
 def test_sources_agree_identical():
     sources = [_src(), _src(name="Pharmacy")]
-    assert _sources_agree(sources) is True
+    assert sources_agree(sources) is True
 
 
 def test_sources_agree_different_dose():
     sources = [_src(dose="500mg"), _src(name="Pharmacy", dose="1000mg")]
-    assert _sources_agree(sources) is False
+    assert sources_agree(sources) is False
 
 
 def test_reconcile_picks_highest_reliability():
@@ -40,13 +40,14 @@ def test_reconcile_picks_most_recent_when_same_reliability():
     assert "1000mg" in result.reconciled_medication
 
 
-def test_reconcile_defers_to_llm_on_tie():
+def test_reconcile_always_returns_result():
+    """Deterministic reconciler now always returns a result (never None)."""
     a = _src(name="Source A", dose="500mg", reliability=SourceReliability.HIGH,
              updated=date(2025, 1, 15))
     b = _src(name="Source B", dose="1000mg", reliability=SourceReliability.HIGH,
              updated=date(2025, 1, 15))
     result = reconcile_medications([a, b], PatientContext())
-    assert result is None  # should defer
+    assert result is not None
 
 
 def test_safety_check_flags_contraindication():
@@ -55,6 +56,32 @@ def test_safety_check_flags_contraindication():
     result = reconcile_medications([src, _src(name="Pharmacy")], ctx)
     assert result is not None
     assert result.clinical_safety_check in (SafetyStatus.WARNING, SafetyStatus.FAILED)
+
+
+def test_confidence_high_when_sources_agree():
+    sources = [_src(), _src(name="Pharmacy")]
+    c = _base_confidence(sources[0], sources, today=date(2025, 3, 1))
+    assert c >= 0.90
+
+
+def test_confidence_moderate_when_majority_agrees():
+    sources = [
+        _src(dose="500mg"),
+        _src(name="Pharmacy", dose="500mg"),
+        _src(name="Patient", dose="1000mg"),
+    ]
+    c = _base_confidence(sources[0], sources, today=date(2025, 3, 1))
+    assert 0.70 <= c <= 0.85
+
+
+def test_confidence_low_when_all_disagree():
+    sources = [
+        _src(dose="500mg", freq="once daily"),
+        _src(name="Pharmacy", dose="1000mg", freq="twice daily"),
+        _src(name="Patient", dose="750mg", freq="three times daily"),
+    ]
+    c = _base_confidence(sources[0], sources, today=date(2025, 3, 1))
+    assert 0.50 <= c <= 0.65
 
 
 def test_confidence_boost_when_sources_agree():
@@ -74,3 +101,10 @@ def test_confidence_penalty_for_stale_data():
     c_stale = _base_confidence(stale, [stale, _src(name="B", updated=date(2023, 1, 1))],
                                 today=date(2025, 3, 1))
     assert c_recent > c_stale
+
+
+def test_confidence_penalty_for_safety_failed():
+    sources = [_src(), _src(name="Pharmacy")]
+    c_passed = _base_confidence(sources[0], sources, safety=SafetyStatus.PASSED, today=date(2025, 3, 1))
+    c_failed = _base_confidence(sources[0], sources, safety=SafetyStatus.FAILED, today=date(2025, 3, 1))
+    assert c_passed > c_failed
