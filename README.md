@@ -40,13 +40,15 @@ This project uses **Anthropic's Claude** (model: `claude-sonnet-4-20250514`) via
 
 1. **Deterministic-first, LLM-second architecture** — The reconciler and quality scorer first attempt a rule-based evaluation. The LLM is only called when sources genuinely conflict (reconciliation) or as the primary path with a deterministic fallback (validation). This reduces cost, latency, and non-determinism for straightforward cases.
 
-2. **JSON-only prompt contracts** — Both system prompts mandate raw JSON output with an exact schema. The parser (`llm/parser.py`) strips markdown fences and validates required keys before the response reaches the frontend, preventing malformed data from surfacing to clinicians.
+2. **Structured source schema over free-text** — The input schema uses explicit fields (`source_name`, `drug_name`, `dose`, `frequency`) rather than a single `medication` string as shown in the assessment PDF. This enables per-field validation, precise confidence calibration per dimension, and avoids brittle string parsing. The `test_data/examples.json` file contains ready-to-use payloads that match the actual API schema.
 
-3. **LRU caching for reconciliation** — An in-memory LRU cache (256 entries) keyed on a hash of the input sources avoids redundant LLM calls for repeated queries during the same session. This keeps demo usage fast without needing Redis or an external cache.
+3. **JSON-only prompt contracts** — Both system prompts mandate raw JSON output with an exact schema. The parser (`llm/parser.py`) strips markdown fences and validates required keys before the response reaches the frontend, preventing malformed data from surfacing to clinicians.
 
-4. **Approve / Reject workflow on the frontend** — Reconciliation results include Approve and Reject buttons so a human clinician always has the final say. The `useApproval` hook tracks decision state per result, reinforcing the principle that the AI assists but does not autonomously act.
+4. **LRU caching for reconciliation** — An in-memory LRU cache (256 entries) keyed on a hash of the input sources avoids redundant LLM calls for repeated queries during the same session. This keeps demo usage fast without needing Redis or an external cache.
 
-5. **Four-dimension quality scoring** — Data quality is broken into Completeness, Accuracy, Timeliness, and Clinical Plausibility (25% weight each). This gives reviewers a transparent breakdown rather than a single opaque number, and the prompt rubric ensures the LLM scores on the same scale every time.
+5. **Approve / Reject workflow on the frontend** — Reconciliation results include Approve and Reject buttons so a human clinician always has the final say. The `useApproval` hook tracks decision state per result, reinforcing the principle that the AI assists but does not autonomously act.
+
+6. **Four-dimension quality scoring** — Data quality is broken into Completeness, Accuracy, Timeliness, and Clinical Plausibility (25% weight each). This gives reviewers a transparent breakdown rather than a single opaque number, and the prompt rubric ensures the LLM scores on the same scale every time.
 
 ---
 
@@ -76,6 +78,8 @@ This structure — fixed rubric in the system prompt, variable data in the user 
 ---
 
 ## What I'd Improve with More Time
+
+- **Multi-worker cache coordination** — The in-memory LRU cache is per-process. Running `uvicorn` with `--workers N` gives each worker its own isolated cache, reducing hit rate proportionally. For production, replace with Redis using the same LRU interface.
 
 1. **Persistent storage** — Add PostgreSQL to store reconciliation decisions, quality reports, and an audit trail of Approve/Reject actions with timestamps and user identity.
 

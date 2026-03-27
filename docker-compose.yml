@@ -9,7 +9,8 @@ services:
       - .env
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - API_KEY=${API_SECRET_KEY}
+      - API_KEY=${API_KEY}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
     networks:
       - app-network
     restart: unless-stopped
