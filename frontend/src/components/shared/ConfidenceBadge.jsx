@@ -1,5 +1,5 @@
 function badgeColor(score) {
-  if (score >= 0.8) return "bg-green-100 text-green-800";
+  if (score >= 0.75) return "bg-green-100 text-green-800";
   if (score >= 0.5) return "bg-yellow-100 text-yellow-800";
   return "bg-red-100 text-red-800";
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ConfidenceBadge from "../shared/ConfidenceBadge";
 import useApproval from "../../hooks/useApproval";
 
@@ -10,6 +11,13 @@ const safetyColors = {
 export default function ReconcileResult({ data }) {
   const { result, patient_id, source_count, llm_used } = data;
   const { status, approve, reject } = useApproval();
+  const [copied, setCopied] = useState(false);
+
+  const copyJson = () => {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="mt-6 bg-white rounded-lg shadow border border-gray-200 divide-y divide-gray-100">
@@ -40,7 +48,7 @@ export default function ReconcileResult({ data }) {
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all ${
-              result.confidence_score >= 0.8
+              result.confidence_score >= 0.75
                 ? "bg-green-500"
                 : result.confidence_score >= 0.5
                 ? "bg-yellow-500"
@@ -72,6 +80,16 @@ export default function ReconcileResult({ data }) {
             <li key={i} className="text-sm text-gray-600">{action}</li>
           ))}
         </ul>
+      </div>
+
+      {/* Copy JSON */}
+      <div className="px-6 py-3 flex justify-end">
+        <button
+          onClick={copyJson}
+          className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          {copied ? "Copied!" : "Copy JSON"}
+        </button>
       </div>
 
       {/* Approve / Reject */}

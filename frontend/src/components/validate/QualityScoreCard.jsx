@@ -1,3 +1,4 @@
+import { useState } from "react";
 import ScoreGauge from "../shared/ScoreGauge";
 import IssueBadge from "../shared/IssueBadge";
 
@@ -10,6 +11,13 @@ function overallColor(score) {
 export default function QualityScoreCard({ data }) {
   const { quality, patient_id, llm_used } = data;
   const { overall_score, breakdown, issues_detected, grade } = quality;
+  const [copied, setCopied] = useState(false);
+
+  const copyJson = () => {
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="mt-6 bg-white rounded-lg shadow border border-gray-200 divide-y divide-gray-100">
@@ -39,6 +47,16 @@ export default function QualityScoreCard({ data }) {
         <ScoreGauge label="Accuracy" score={breakdown.accuracy} />
         <ScoreGauge label="Timeliness" score={breakdown.timeliness} />
         <ScoreGauge label="Clinical Plausibility" score={breakdown.clinical_plausibility} />
+      </div>
+
+      {/* Copy JSON */}
+      <div className="px-6 py-3 flex justify-end">
+        <button
+          onClick={copyJson}
+          className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
+        >
+          {copied ? "Copied!" : "Copy JSON"}
+        </button>
       </div>
 
       {/* Issues */}
