@@ -18,6 +18,9 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
+logger = logging.getLogger(__name__)
+logger.info("ANTHROPIC_API_KEY set: %s", bool(os.getenv("ANTHROPIC_API_KEY")))
+
 app = FastAPI(
     title="Clinical Data Reconciliation Engine",
     version="0.1.0",

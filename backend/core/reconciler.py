@@ -41,7 +41,7 @@ def _sort_key(src: MedicationSource) -> tuple[int, date]:
     return (_RELIABILITY_RANK[src.reliability], src.last_updated)
 
 
-def _sources_agree(sources: list[MedicationSource]) -> bool:
+def sources_agree(sources: list[MedicationSource]) -> bool:
     """True when all sources describe the same drug+dose+frequency."""
     first = sources[0]
     return all(
@@ -50,6 +50,17 @@ def _sources_agree(sources: list[MedicationSource]) -> bool:
         and s.frequency.lower() == first.frequency.lower()
         for s in sources[1:]
     )
+
+
+def _agreement_ratio(sources: list[MedicationSource]) -> float:
+    """Fraction of sources matching the most common drug+dose+frequency."""
+    if len(sources) <= 1:
+        return 1.0
+    combos: dict[tuple[str, str, str], int] = {}
+    for s in sources:
+        key = (s.drug_name.lower(), s.dose.lower(), s.frequency.lower())
+        combos[key] = combos.get(key, 0) + 1
+    return max(combos.values()) / len(sources)
 
 
 def _check_safety(
@@ -69,25 +80,34 @@ def _check_safety(
 def _base_confidence(
     best: MedicationSource,
     sources: list[MedicationSource],
+    safety: SafetyStatus = SafetyStatus.PASSED,
     today: date | None = None,
 ) -> float:
     today = today or date.today()
-    score = 0.7
+    ratio = _agreement_ratio(sources)
 
-    # Boost if high-reliability source
+    # Base score from agreement level
+    if ratio >= 1.0:          # all sources agree
+        score = 0.92
+    elif ratio > 0.5:         # majority agree (e.g. 2 of 3)
+        score = 0.75
+    else:                     # all disagree or no majority
+        score = 0.55
+
+    # Adjust by best source reliability
     if best.reliability == SourceReliability.HIGH:
-        score += 0.15
-    elif best.reliability == SourceReliability.MEDIUM:
         score += 0.05
-
-    # Boost if all sources agree
-    if _sources_agree(sources):
-        score += 0.10
+    elif best.reliability == SourceReliability.LOW:
+        score -= 0.05
 
     # Penalize stale data
     age = today - best.last_updated
     if age > _STALE_THRESHOLD:
-        score -= 0.20
+        score -= 0.15
+
+    # Penalize safety failures
+    if safety == SafetyStatus.FAILED:
+        score -= 0.10
 
     return round(min(max(score, 0.0), 1.0), 2)
 
@@ -95,27 +115,14 @@ def _base_confidence(
 def reconcile_medications(
     sources: list[MedicationSource],
     patient_ctx: PatientContext,
-) -> ReconciledMedication | None:
-    """Return a deterministic reconciliation or *None* when the LLM should decide.
-
-    Returns ``None`` when the top two sources have the same reliability and
-    recency but disagree on the medication — the caller should then invoke
-    the LLM path.
-    """
+) -> ReconciledMedication:
+    """Return a deterministic reconciliation based on source reliability and recency."""
     ranked = sorted(sources, key=_sort_key, reverse=True)
     best = ranked[0]
 
-    # If the top two sources tie on reliability but disagree, defer to LLM.
-    if len(ranked) >= 2:
-        runner_up = ranked[1]
-        same_rank = _RELIABILITY_RANK[best.reliability] == _RELIABILITY_RANK[runner_up.reliability]
-        same_date = best.last_updated == runner_up.last_updated
-        if same_rank and same_date and not _sources_agree([best, runner_up]):
-            return None  # needs LLM
-
     reconciled_med = f"{best.drug_name} {best.dose} {best.frequency}"
-    confidence = _base_confidence(best, sources)
     safety = _check_safety(best.drug_name, patient_ctx)
+    confidence = _base_confidence(best, sources, safety)
 
     actions: list[str] = ["Verify reconciled medication with patient at next visit"]
     if safety == SafetyStatus.WARNING:
@@ -123,14 +130,14 @@ def reconcile_medications(
     elif safety == SafetyStatus.FAILED:
         actions.insert(0, f"URGENT: {best.drug_name} may be contraindicated — escalate to prescriber")
 
-    if not _sources_agree(sources):
+    if not sources_agree(sources):
         actions.append("Reconcile discrepancy across source systems")
 
     reasoning = (
         f"Selected {best.source_name} (reliability={best.reliability.value}, "
         f"updated={best.last_updated}) as the most authoritative source. "
     )
-    if _sources_agree(sources):
+    if sources_agree(sources):
         reasoning += "All sources agree on drug, dose, and frequency."
     else:
         reasoning += "Sources disagree; the highest-ranked source was preferred."

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.middleware.auth import verify_api_key
 from core.cache import reconcile_cache
-from core.reconciler import reconcile_medications
+from core.reconciler import reconcile_medications, sources_agree
 from llm.client import llm_reconcile
 from llm.parser import LLMParseError
 from schemas.reconcile import ReconcileRequest, ReconcileResponse
@@ -29,21 +29,20 @@ async def reconcile_medication(
     if cached:
         return cached
 
-    # Try deterministic path first
-    result = reconcile_medications(body.sources, body.patient_context)
+    # Deterministic baseline (always available as fallback)
+    det_result = reconcile_medications(body.sources, body.patient_context)
     llm_used = False
 
-    if result is None:
-        # Deterministic reconciler deferred → call LLM
+    if not sources_agree(body.sources):
+        # Sources conflict → try LLM for clinical reasoning
         try:
             result = llm_reconcile(body.sources, body.patient_context)
             llm_used = True
         except (LLMParseError, RuntimeError) as exc:
-            logger.error("LLM reconciliation failed: %s", exc)
-            raise HTTPException(
-                status_code=502,
-                detail=f"LLM reconciliation failed: {exc}",
-            )
+            logger.exception("LLM reconciliation failed, using deterministic fallback")
+            result = det_result
+    else:
+        result = det_result
 
     response = ReconcileResponse(
         patient_id=body.patient_id,
