@@ -1,13 +1,13 @@
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-const API_KEY = (import.meta.env.VITE_API_KEY || "").trim();
-
-if (!API_KEY) {
-  throw new Error(
-    "VITE_API_KEY is not set. Create frontend/.env with VITE_API_KEY=<your-key> and restart the dev server.",
-  );
+if (!(import.meta.env.VITE_API_KEY || "").trim()) {
+  console.warn("[api/client] VITE_API_KEY is not set. API calls will fail until it is added to frontend/.env.");
 }
 
 async function request(path, body) {
+  const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
+  const API_KEY = (import.meta.env.VITE_API_KEY || "").trim();
+  if (!API_KEY) {
+    throw new Error("VITE_API_KEY is not set. Add it to frontend/.env and restart.");
+  }
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
     headers: {
@@ -16,12 +16,10 @@ async function request(path, body) {
     },
     body: JSON.stringify(body),
   });
-
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err?.detail?.error?.message || err?.detail || `HTTP ${res.status}`);
   }
-
   return res.json();
 }
 

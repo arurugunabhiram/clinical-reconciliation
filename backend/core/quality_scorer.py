@@ -142,9 +142,33 @@ def _score_timeliness(record: PatientRecord) -> tuple[int, list[FieldIssue]]:
 _VITAL_RANGES = {
     "heart_rate": (20, 250),
     "spo2": (0, 100),
-    "temperature": (85, 115),  # Fahrenheit
     "respiratory_rate": (4, 60),
 }
+
+_TEMP_CELSIUS_RANGE = (28.0, 45.0)
+_TEMP_FAHRENHEIT_RANGE = (85.0, 115.0)
+
+
+def _check_temperature(value: float) -> tuple[bool, str]:
+    """Check whether a temperature is plausible in Celsius or Fahrenheit.
+
+    Returns (is_plausible, detected_unit).
+    """
+    c_lo, c_hi = _TEMP_CELSIUS_RANGE
+    f_lo, f_hi = _TEMP_FAHRENHEIT_RANGE
+
+    in_celsius = c_lo <= value <= c_hi
+    in_fahrenheit = f_lo <= value <= f_hi
+
+    if in_celsius and in_fahrenheit:
+        # Overlapping range (e.g. 95–115 could be either); assume Fahrenheit
+        # since that's more common in clinical systems for values ≥ 85
+        return True, "F"
+    if in_celsius:
+        return True, "C"
+    if in_fahrenheit:
+        return True, "F"
+    return False, "unknown"
 
 
 def _parse_bp(bp_str: str) -> tuple[int, int] | None:
@@ -178,6 +202,24 @@ def _score_clinical_plausibility(record: PatientRecord) -> tuple[int, list[Field
                         severity=IssueSeverity.HIGH,
                     ))
                     deductions += 20
+        elif key == "temperature":
+            try:
+                v = float(value)
+                plausible, unit = _check_temperature(v)
+                if not plausible:
+                    c_lo, c_hi = _TEMP_CELSIUS_RANGE
+                    f_lo, f_hi = _TEMP_FAHRENHEIT_RANGE
+                    issues.append(FieldIssue(
+                        field="vital_signs.temperature",
+                        issue=(
+                            f"Temperature {v} is outside both plausible Celsius "
+                            f"({c_lo}-{c_hi}) and Fahrenheit ({f_lo}-{f_hi}) ranges"
+                        ),
+                        severity=IssueSeverity.HIGH,
+                    ))
+                    deductions += 25
+            except (ValueError, TypeError):
+                pass
         elif key in _VITAL_RANGES:
             try:
                 v = float(value)

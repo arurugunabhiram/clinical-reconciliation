@@ -3,7 +3,7 @@
 ```
 clinical-reconciliation/
 │
-├── .env.example                  # Root env template (ANTHROPIC_API_KEY, API_SECRET_KEY)
+├── .env.example                  # Root env template (ANTHROPIC_API_KEY, API_KEY)
 ├── .gitignore
 ├── README.md
 ├── docker-compose.yml            # Orchestrates backend + frontend containers
@@ -58,7 +58,7 @@ clinical-reconciliation/
 │       ├── index.css             # Tailwind base styles
 │       │
 │       ├── api/
-│       │   └── client.js         # Axios client — base URL + API key from env
+│       │   └── client.js         # Fetch client — base URL + API key from env
 │       │
 │       ├── hooks/
 │       │   └── useApproval.js    # Approve/Reject state management per result
