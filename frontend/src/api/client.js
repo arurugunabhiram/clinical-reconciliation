@@ -1,13 +1,19 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
-const API_KEY = import.meta.env.VITE_API_KEY || "";
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const API_KEY = (import.meta.env.VITE_API_KEY || "").trim();
+
+if (!API_KEY) {
+  throw new Error(
+    "VITE_API_KEY is not set. Create frontend/.env with VITE_API_KEY=<your-key> and restart the dev server.",
+  );
+}
 
 async function request(path, body) {
-  const headers = { "Content-Type": "application/json" };
-  if (API_KEY) headers["X-API-Key"] = API_KEY;
-
   const res = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+    },
     body: JSON.stringify(body),
   });
 
