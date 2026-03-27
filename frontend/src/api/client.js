@@ -1,3 +1,7 @@
+if (!(import.meta.env.VITE_API_KEY || "").trim()) {
+  console.warn("[api/client] VITE_API_KEY is not set. API calls will fail until it is added to frontend/.env.");
+}
+
 async function request(path, body) {
   const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
   const API_KEY = (import.meta.env.VITE_API_KEY || "").trim();

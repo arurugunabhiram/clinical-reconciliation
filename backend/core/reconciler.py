@@ -26,6 +26,62 @@ _RELIABILITY_RANK = {
 
 _STALE_THRESHOLD = timedelta(days=180)
 
+# Canonical frequency aliases — maps common synonyms to a single form.
+_FREQUENCY_ALIASES: dict[str, str] = {
+    # once daily
+    "once daily": "once daily",
+    "once a day": "once daily",
+    "1x daily": "once daily",
+    "qd": "once daily",
+    "q24h": "once daily",
+    "daily": "once daily",
+    "od": "once daily",
+    # twice daily
+    "twice daily": "twice daily",
+    "twice a day": "twice daily",
+    "2x daily": "twice daily",
+    "bid": "twice daily",
+    "q12h": "twice daily",
+    "b.i.d.": "twice daily",
+    # three times daily
+    "three times daily": "three times daily",
+    "three times a day": "three times daily",
+    "3x daily": "three times daily",
+    "tid": "three times daily",
+    "q8h": "three times daily",
+    "t.i.d.": "three times daily",
+    # four times daily
+    "four times daily": "four times daily",
+    "four times a day": "four times daily",
+    "4x daily": "four times daily",
+    "qid": "four times daily",
+    "q6h": "four times daily",
+    "q.i.d.": "four times daily",
+    # every other day
+    "every other day": "every other day",
+    "qod": "every other day",
+    "q48h": "every other day",
+    # weekly
+    "once weekly": "once weekly",
+    "once a week": "once weekly",
+    "weekly": "once weekly",
+    "qw": "once weekly",
+    # as needed
+    "as needed": "as needed",
+    "prn": "as needed",
+    "p.r.n.": "as needed",
+    # at bedtime
+    "at bedtime": "at bedtime",
+    "qhs": "at bedtime",
+    "q.h.s.": "at bedtime",
+}
+
+
+def _normalize_frequency(freq: str) -> str:
+    """Map a frequency string to its canonical form, or lowercase it as-is."""
+    return _FREQUENCY_ALIASES.get(freq.strip().lower(), freq.strip().lower())
+
+
 # Simple contraindication table: condition → set of drugs to flag.
 _CONTRAINDICATIONS: dict[str, set[str]] = {
     "ckd stage 3": {"metformin", "nsaid", "ibuprofen", "naproxen"},
@@ -47,7 +103,7 @@ def sources_agree(sources: list[MedicationSource]) -> bool:
     return all(
         s.drug_name.lower() == first.drug_name.lower()
         and s.dose.lower() == first.dose.lower()
-        and s.frequency.lower() == first.frequency.lower()
+        and _normalize_frequency(s.frequency) == _normalize_frequency(first.frequency)
         for s in sources[1:]
     )
 
@@ -58,7 +114,7 @@ def _agreement_ratio(sources: list[MedicationSource]) -> float:
         return 1.0
     combos: dict[tuple[str, str, str], int] = {}
     for s in sources:
-        key = (s.drug_name.lower(), s.dose.lower(), s.frequency.lower())
+        key = (s.drug_name.lower(), s.dose.lower(), _normalize_frequency(s.frequency))
         combos[key] = combos.get(key, 0) + 1
     return max(combos.values()) / len(sources)
 
