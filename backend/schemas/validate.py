@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,21 +13,12 @@ class IssueSeverity(str, Enum):
 
 
 class PatientRecord(BaseModel):
-    patient_id: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    date_of_birth: Optional[str] = None
-    gender: Optional[str] = None
-    medications: list[dict] = Field(default_factory=list)
-    diagnoses: list[str] = Field(default_factory=list)
-    allergies: list[str] = Field(default_factory=list)
-    vital_signs: dict[str, object] = Field(default_factory=dict)
-    lab_results: dict[str, str] = Field(default_factory=dict)
+    demographics: Optional[dict[str, Any]] = None
+    medications: list[Any] = Field(default_factory=list)
+    allergies: list[Any] = Field(default_factory=list)
+    conditions: list[str] = Field(default_factory=list)
+    vital_signs: dict[str, Any] = Field(default_factory=dict)
     last_updated: Optional[str] = None
-
-
-class ValidateRequest(BaseModel):
-    record: PatientRecord
 
 
 class FieldIssue(BaseModel):
@@ -47,10 +38,9 @@ class QualityScore(BaseModel):
     overall_score: int = Field(..., ge=0, le=100)
     breakdown: QualityBreakdown
     issues_detected: list[FieldIssue]
-    grade: str = Field(..., pattern="^(A|B|C|D|F)$")
 
 
 class ValidateResponse(BaseModel):
-    patient_id: Optional[str]
-    quality: QualityScore
-    llm_used: bool
+    overall_score: int = Field(..., ge=0, le=100)
+    breakdown: QualityBreakdown
+    issues_detected: list[FieldIssue]

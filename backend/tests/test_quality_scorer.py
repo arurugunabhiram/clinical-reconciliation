@@ -4,19 +4,15 @@ from schemas.validate import PatientRecord, IssueSeverity
 
 def test_complete_record_scores_high():
     record = PatientRecord(
-        patient_id="P001",
-        first_name="Jane",
-        last_name="Doe",
-        date_of_birth="1985-03-15",
+        demographics={"name": "Jane Doe", "dob": "1985-03-15", "gender": "F"},
         medications=[{"drug_name": "Lisinopril", "dose": "10mg"}],
-        diagnoses=["Hypertension"],
+        conditions=["Hypertension"],
         allergies=["Penicillin"],
         vital_signs={"blood_pressure": "120/80", "heart_rate": 72},
         last_updated="2026-03-20",
     )
     result = score_record_quality(record)
     assert result.overall_score >= 85
-    assert result.grade in ("A", "B")
     assert result.breakdown.completeness == 100
 
 
@@ -25,16 +21,12 @@ def test_empty_record_scores_low():
     result = score_record_quality(record)
     assert result.breakdown.completeness == 0
     assert result.overall_score <= 65  # accuracy/plausibility stay high with no data to check
-    assert result.grade in ("D", "F")
     assert any(i.severity == IssueSeverity.HIGH for i in result.issues_detected)
 
 
 def test_missing_medications_is_medium():
     record = PatientRecord(
-        patient_id="P002",
-        first_name="John",
-        last_name="Smith",
-        date_of_birth="1990-07-20",
+        demographics={"name": "John Smith", "dob": "1990-07-20"},
     )
     result = score_record_quality(record)
     med_issues = [i for i in result.issues_detected if i.field == "medications"]
@@ -44,12 +36,9 @@ def test_missing_medications_is_medium():
 
 def test_future_dob_flagged():
     record = PatientRecord(
-        patient_id="P003",
-        first_name="Test",
-        last_name="Patient",
-        date_of_birth="2099-01-01",
+        demographics={"name": "Test Patient", "dob": "2099-01-01"},
         medications=[{"drug_name": "Aspirin", "dose": "81mg"}],
-        diagnoses=["None"],
+        conditions=["None"],
         allergies=["NKDA"],
         vital_signs={"heart_rate": 72},
         last_updated="2026-03-20",
@@ -62,10 +51,7 @@ def test_future_dob_flagged():
 
 def test_bad_date_format_flagged():
     record = PatientRecord(
-        patient_id="P004",
-        first_name="Test",
-        last_name="Patient",
-        date_of_birth="03/15/1985",
+        demographics={"name": "Test Patient", "dob": "03/15/1985"},
     )
     result = score_record_quality(record)
     dob_issues = [i for i in result.issues_detected if i.field == "date_of_birth"]
@@ -74,27 +60,21 @@ def test_bad_date_format_flagged():
 
 def test_duplicate_diagnoses_flagged():
     record = PatientRecord(
-        patient_id="P005",
-        first_name="Test",
-        last_name="Patient",
-        date_of_birth="1970-01-01",
+        demographics={"name": "Test Patient", "dob": "1970-01-01"},
         medications=[{"drug_name": "Metformin", "dose": "500mg"}],
-        diagnoses=["Diabetes", "diabetes"],
+        conditions=["Diabetes", "diabetes"],
         allergies=["Sulfa"],
     )
     result = score_record_quality(record)
-    diag_issues = [i for i in result.issues_detected if i.field == "diagnoses"]
-    assert any("Duplicate" in i.issue for i in diag_issues)
+    cond_issues = [i for i in result.issues_detected if i.field == "conditions"]
+    assert any("Duplicate" in i.issue for i in cond_issues)
 
 
 def test_impossible_blood_pressure_flagged():
     record = PatientRecord(
-        patient_id="P007",
-        first_name="Test",
-        last_name="Patient",
-        date_of_birth="1955-03-15",
+        demographics={"name": "Test Patient", "dob": "1955-03-15"},
         medications=[{"drug_name": "Lisinopril", "dose": "10mg"}],
-        diagnoses=["Hypertension"],
+        conditions=["Hypertension"],
         vital_signs={"blood_pressure": "340/180", "heart_rate": 72},
         last_updated="2026-03-20",
     )
@@ -107,12 +87,9 @@ def test_impossible_blood_pressure_flagged():
 
 def test_timeliness_old_record_penalized():
     record = PatientRecord(
-        patient_id="P008",
-        first_name="Test",
-        last_name="Patient",
-        date_of_birth="1960-01-01",
+        demographics={"name": "Test Patient", "dob": "1960-01-01"},
         medications=[{"drug_name": "Aspirin", "dose": "81mg"}],
-        diagnoses=["CAD"],
+        conditions=["CAD"],
         allergies=["NKDA"],
         vital_signs={"heart_rate": 68},
         last_updated="2024-06-15",
@@ -123,14 +100,10 @@ def test_timeliness_old_record_penalized():
 
 def test_metformin_low_egfr_contraindication():
     record = PatientRecord(
-        patient_id="P009",
-        first_name="Test",
-        last_name="Patient",
-        date_of_birth="1950-05-10",
+        demographics={"name": "Test Patient", "dob": "1950-05-10"},
         medications=[{"drug_name": "Metformin", "dose": "1000mg"}],
-        diagnoses=["Type 2 Diabetes", "CKD Stage 4"],
-        lab_results={"eGFR": "25 mL/min"},
-        vital_signs={"blood_pressure": "140/90"},
+        conditions=["Type 2 Diabetes", "CKD Stage 4"],
+        vital_signs={"blood_pressure": "140/90", "eGFR": "25 mL/min"},
         last_updated="2026-03-20",
     )
     result = score_record_quality(record)
@@ -140,7 +113,7 @@ def test_metformin_low_egfr_contraindication():
 
 
 def test_four_dimension_breakdown_present():
-    record = PatientRecord(patient_id="P010")
+    record = PatientRecord()
     result = score_record_quality(record)
     assert hasattr(result, "breakdown")
     assert hasattr(result.breakdown, "completeness")

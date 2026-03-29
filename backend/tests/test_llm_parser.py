@@ -96,14 +96,13 @@ def test_parse_validation_valid_json():
     assert result.breakdown.accuracy == 50
     assert result.breakdown.timeliness == 70
     assert result.breakdown.clinical_plausibility == 40
-    assert result.grade == "D"
     assert len(result.issues_detected) == 1
 
 
-def test_parse_validation_assigns_grade():
+def test_parse_validation_score_range():
     high_score = _VALID_VALIDATION_JSON.replace('"overall_score": 62', '"overall_score": 92')
     result = parse_validation_response(high_score)
-    assert result.grade == "A"
+    assert result.overall_score == 92
 
 
 def test_parse_validation_rejects_missing_breakdown():

@@ -1,6 +1,9 @@
 export default function PageShell({ children }) {
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8">
+    <main
+      className="mx-auto px-6 pt-8 pb-16"
+      style={{ maxWidth: "1100px" }}
+    >
       {children}
     </main>
   );

@@ -13,13 +13,6 @@ from schemas.validate import (
     QualityScore,
 )
 
-_REQUIRED_FIELDS: list[tuple[str, str]] = [
-    ("patient_id", "Patient ID"),
-    ("first_name", "First name"),
-    ("last_name", "Last name"),
-    ("date_of_birth", "Date of birth"),
-]
-
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -28,33 +21,57 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 def _score_completeness(record: PatientRecord) -> tuple[int, list[FieldIssue]]:
     issues: list[FieldIssue] = []
     present = 0
-    total = len(_REQUIRED_FIELDS) + 4  # +4 for meds, diagnoses, allergies, vital_signs
+    total = 6  # demographics, medications, conditions, allergies, vital_signs, last_updated
 
-    for attr, label in _REQUIRED_FIELDS:
-        if getattr(record, attr, None):
-            present += 1
-        else:
-            issues.append(FieldIssue(field=attr, issue=f"{label} is missing", severity=IssueSeverity.HIGH))
+    demo = record.demographics or {}
+    if demo.get("name") or demo.get("dob"):
+        present += 1
+    else:
+        issues.append(FieldIssue(
+            field="demographics",
+            issue="Demographics (name/dob) missing",
+            severity=IssueSeverity.HIGH,
+        ))
 
     if record.medications:
         present += 1
     else:
-        issues.append(FieldIssue(field="medications", issue="No medications listed", severity=IssueSeverity.MEDIUM))
+        issues.append(FieldIssue(
+            field="medications",
+            issue="No medications listed",
+            severity=IssueSeverity.MEDIUM,
+        ))
 
-    if record.diagnoses:
+    if record.conditions:
         present += 1
     else:
-        issues.append(FieldIssue(field="diagnoses", issue="No diagnoses listed", severity=IssueSeverity.MEDIUM))
+        issues.append(FieldIssue(
+            field="conditions",
+            issue="No conditions listed",
+            severity=IssueSeverity.MEDIUM,
+        ))
 
     if record.allergies:
         present += 1
     else:
-        issues.append(FieldIssue(field="allergies", issue="Allergies not documented — confirm with patient", severity=IssueSeverity.LOW))
+        issues.append(FieldIssue(
+            field="allergies",
+            issue="No allergies documented — confirm with patient",
+            severity=IssueSeverity.LOW,
+        ))
 
     if record.vital_signs:
         present += 1
     else:
-        issues.append(FieldIssue(field="vital_signs", issue="No vital signs recorded", severity=IssueSeverity.MEDIUM))
+        issues.append(FieldIssue(
+            field="vital_signs",
+            issue="No vital signs recorded",
+            severity=IssueSeverity.MEDIUM,
+        ))
+
+    if record.last_updated:
+        present += 1
+    # timeliness handles the score penalty; no duplicate issue here
 
     score = round((present / total) * 100) if total else 100
     return score, issues
@@ -66,37 +83,42 @@ def _score_accuracy(record: PatientRecord) -> tuple[int, list[FieldIssue]]:
     issues: list[FieldIssue] = []
     deductions = 0
 
-    # DOB format and validity
-    if record.date_of_birth:
-        if _DATE_RE.match(record.date_of_birth):
+    dob = (record.demographics or {}).get("dob")
+    if dob:
+        if _DATE_RE.match(str(dob)):
             try:
-                dob = datetime.strptime(record.date_of_birth, "%Y-%m-%d").date()
-                if dob > date.today():
-                    issues.append(FieldIssue(field="date_of_birth", issue="Date of birth is in the future", severity=IssueSeverity.HIGH))
+                dob_date = datetime.strptime(str(dob), "%Y-%m-%d").date()
+                if dob_date > date.today():
+                    issues.append(FieldIssue(
+                        field="date_of_birth",
+                        issue="Date of birth is in the future",
+                        severity=IssueSeverity.HIGH,
+                    ))
                     deductions += 20
             except ValueError:
-                issues.append(FieldIssue(field="date_of_birth", issue="Invalid date value", severity=IssueSeverity.HIGH))
+                issues.append(FieldIssue(
+                    field="date_of_birth",
+                    issue="Invalid date value",
+                    severity=IssueSeverity.HIGH,
+                ))
                 deductions += 15
         else:
-            issues.append(FieldIssue(field="date_of_birth", issue="Date of birth should be YYYY-MM-DD format", severity=IssueSeverity.MEDIUM))
+            issues.append(FieldIssue(
+                field="date_of_birth",
+                issue="Date of birth should be YYYY-MM-DD format",
+                severity=IssueSeverity.MEDIUM,
+            ))
             deductions += 10
 
-    # Medication entries should have drug/dose info
-    for i, med in enumerate(record.medications):
-        if isinstance(med, dict):
-            if "drug" not in med and "drug_name" not in med:
-                issues.append(FieldIssue(
-                    field=f"medications[{i}]",
-                    issue="Medication entry missing drug name",
-                    severity=IssueSeverity.MEDIUM,
-                ))
-                deductions += 5
-
-    # Duplicate diagnoses
-    if record.diagnoses:
-        lower_diag = [d.lower().strip() for d in record.diagnoses]
-        if len(lower_diag) != len(set(lower_diag)):
-            issues.append(FieldIssue(field="diagnoses", issue="Duplicate diagnoses detected", severity=IssueSeverity.LOW))
+    # Duplicate conditions
+    if record.conditions:
+        lower_conds = [c.lower().strip() for c in record.conditions]
+        if len(lower_conds) != len(set(lower_conds)):
+            issues.append(FieldIssue(
+                field="conditions",
+                issue="Duplicate conditions detected",
+                severity=IssueSeverity.LOW,
+            ))
             deductions += 5
 
     return max(0, 100 - deductions), issues
@@ -108,18 +130,25 @@ def _score_timeliness(record: PatientRecord) -> tuple[int, list[FieldIssue]]:
     issues: list[FieldIssue] = []
 
     if not record.last_updated:
-        issues.append(FieldIssue(field="last_updated", issue="No last_updated date provided", severity=IssueSeverity.MEDIUM))
-        return 50, issues
+        return 50, issues  # completeness already flags this missing
 
     try:
         updated = datetime.strptime(record.last_updated, "%Y-%m-%d").date()
     except ValueError:
-        issues.append(FieldIssue(field="last_updated", issue="Invalid last_updated date format", severity=IssueSeverity.MEDIUM))
+        issues.append(FieldIssue(
+            field="last_updated",
+            issue="Invalid last_updated date format",
+            severity=IssueSeverity.MEDIUM,
+        ))
         return 50, issues
 
     days_old = (date.today() - updated).days
     if days_old < 0:
-        issues.append(FieldIssue(field="last_updated", issue="last_updated is in the future", severity=IssueSeverity.HIGH))
+        issues.append(FieldIssue(
+            field="last_updated",
+            issue="last_updated is in the future",
+            severity=IssueSeverity.HIGH,
+        ))
         return 50, issues
 
     if days_old <= 30:
@@ -132,7 +161,11 @@ def _score_timeliness(record: PatientRecord) -> tuple[int, list[FieldIssue]]:
         score = 50
     else:
         score = 30
-        issues.append(FieldIssue(field="last_updated", issue=f"Record is over {days_old // 30} months old", severity=IssueSeverity.MEDIUM))
+        issues.append(FieldIssue(
+            field="last_updated",
+            issue=f"Record is over {days_old // 30} months old",
+            severity=IssueSeverity.MEDIUM,
+        ))
 
     return score, issues
 
@@ -150,10 +183,6 @@ _TEMP_FAHRENHEIT_RANGE = (85.0, 115.0)
 
 
 def _check_temperature(value: float) -> tuple[bool, str]:
-    """Check whether a temperature is plausible in Celsius or Fahrenheit.
-
-    Returns (is_plausible, detected_unit).
-    """
     c_lo, c_hi = _TEMP_CELSIUS_RANGE
     f_lo, f_hi = _TEMP_FAHRENHEIT_RANGE
 
@@ -161,8 +190,6 @@ def _check_temperature(value: float) -> tuple[bool, str]:
     in_fahrenheit = f_lo <= value <= f_hi
 
     if in_celsius and in_fahrenheit:
-        # Overlapping range (e.g. 95–115 could be either); assume Fahrenheit
-        # since that's more common in clinical systems for values ≥ 85
         return True, "F"
     if in_celsius:
         return True, "C"
@@ -182,7 +209,6 @@ def _score_clinical_plausibility(record: PatientRecord) -> tuple[int, list[Field
     issues: list[FieldIssue] = []
     deductions = 0
 
-    # Check vital signs
     for key, value in record.vital_signs.items():
         if key == "blood_pressure":
             bp = _parse_bp(str(value))
@@ -205,7 +231,7 @@ def _score_clinical_plausibility(record: PatientRecord) -> tuple[int, list[Field
         elif key == "temperature":
             try:
                 v = float(value)
-                plausible, unit = _check_temperature(v)
+                plausible, _ = _check_temperature(v)
                 if not plausible:
                     c_lo, c_hi = _TEMP_CELSIUS_RANGE
                     f_lo, f_hi = _TEMP_FAHRENHEIT_RANGE
@@ -234,9 +260,9 @@ def _score_clinical_plausibility(record: PatientRecord) -> tuple[int, list[Field
             except (ValueError, TypeError):
                 pass
 
-    # Drug-disease contraindications (basic checks)
+    # Drug-disease contraindications
     med_names = _extract_drug_names(record.medications)
-    lab_egfr = _get_lab_value(record.lab_results, "egfr")
+    lab_egfr = _get_lab_value(record.vital_signs, "egfr")
 
     if "metformin" in med_names and lab_egfr is not None and lab_egfr < 30:
         issues.append(FieldIssue(
@@ -249,17 +275,23 @@ def _score_clinical_plausibility(record: PatientRecord) -> tuple[int, list[Field
     return max(0, 100 - deductions), issues
 
 
-def _extract_drug_names(medications: list[dict]) -> set[str]:
+def _extract_drug_names(medications: list) -> set[str]:
     names: set[str] = set()
     for med in medications:
-        if isinstance(med, dict):
+        if isinstance(med, str):
+            token = med.strip().split()[0].lower() if med.strip() else ""
+            if token:
+                names.add(token)
+        elif isinstance(med, dict):
             for key in ("drug", "drug_name", "name"):
                 if key in med:
-                    names.add(str(med[key]).lower())
+                    token = str(med[key]).strip().split()[0].lower()
+                    if token:
+                        names.add(token)
     return names
 
 
-def _get_lab_value(labs: dict[str, str], key: str) -> float | None:
+def _get_lab_value(labs: dict[str, object], key: str) -> float | None:
     for k, v in labs.items():
         if k.lower() == key.lower():
             try:
@@ -270,18 +302,6 @@ def _get_lab_value(labs: dict[str, str], key: str) -> float | None:
 
 
 # ── Public API ────────────────────────────────────────────────────────
-
-def _letter_grade(score: int) -> str:
-    if score >= 90:
-        return "A"
-    if score >= 80:
-        return "B"
-    if score >= 70:
-        return "C"
-    if score >= 60:
-        return "D"
-    return "F"
-
 
 def score_record_quality(record: PatientRecord) -> QualityScore:
     comp, comp_issues = _score_completeness(record)
@@ -301,5 +321,4 @@ def score_record_quality(record: PatientRecord) -> QualityScore:
             clinical_plausibility=plaus,
         ),
         issues_detected=all_issues,
-        grade=_letter_grade(overall),
     )

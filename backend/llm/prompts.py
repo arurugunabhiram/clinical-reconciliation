@@ -9,20 +9,27 @@ You must always respond with valid JSON only — no preamble, no explanation out
 the JSON object. Follow this exact schema:
 
 {
-  "reconciled_medication": "<drug name, dose, frequency>",
-  "confidence_score": <float 0.0–1.0>,
+  "reconciled_medication": "<drug name dose frequency>",
+  "confidence_score": <float 0.0-1.0>,
   "reasoning": "<2-3 sentence clinical rationale>",
-  "recommended_actions": ["<action 1>", "<action 2>"],
-  "clinical_safety_check": "<PASSED | WARNING | FAILED>"
+  "recommended_actions": ["<action>", "<action>"],
+  "clinical_safety_check": "<PASSED or REVIEW_REQUIRED>"
 }
 
 Scoring rules:
 - Prefer the most recently updated source when reliability is equal
 - Weight source reliability: high > medium > low
 - Reduce confidence if sources strongly conflict or data is outdated (>6 months)
-- Set clinical_safety_check to WARNING or FAILED if the reconciled dose is \
-contraindicated given the patient's conditions or lab values
-- recommended_actions should be concrete, actionable steps for care team\
+- Confidence score calibration anchors:
+  * 0.90–1.00: All sources agree or single authoritative high-reliability source
+  * 0.75–0.89: One clear winner by recency + reliability, minor conflicts
+  * 0.60–0.74: Meaningful conflict between sources, patient context resolves it
+  * 0.40–0.59: Strong conflict, unclear resolution, patient context inconclusive
+  * Below 0.40: Irreconcilable conflict, clinical review essential
+- Set clinical_safety_check to REVIEW_REQUIRED for any safety concern, \
+contraindication, or when the data is inconsistent or incomplete; use PASSED \
+only when the reconciled medication is clinically safe given the patient context
+- recommended_actions should be concrete, actionable steps for the care team\
 """
 
 
@@ -45,30 +52,34 @@ You must always respond with valid JSON only — no preamble, no markdown, \
 no explanation outside the JSON object. Follow this exact schema:
 
 {
-  "overall_score": <integer 0-100>,
+  "overall_score": <int 0-100>,
   "breakdown": {
-    "completeness": <integer 0-100>,
-    "accuracy": <integer 0-100>,
-    "timeliness": <integer 0-100>,
-    "clinical_plausibility": <integer 0-100>
+    "completeness": <int 0-100>,
+    "accuracy": <int 0-100>,
+    "timeliness": <int 0-100>,
+    "clinical_plausibility": <int 0-100>
   },
   "issues_detected": [
-    {
-      "field": "<field name or path>",
-      "issue": "<plain-language description of the problem>",
-      "severity": "<high | medium | low>"
-    }
+    {"field": "<field path like vital_signs.blood_pressure>", "issue": "<description>", "severity": "<high|medium|low>"}
   ]
 }
 
 Scoring rubric:
 COMPLETENESS (0-100):
-- Deduct points for missing: allergies (documented as empty), diagnoses, \
+- Deduct points for missing: allergies (documented as empty), conditions, \
 medications, vital signs, demographics fields
 
 ACCURACY (0-100):
 - Deduct for values that conflict with each other or with standard clinical ranges
 - Cross-check medications against documented conditions for mismatches
+- Known drug-disease pairs to check (always flag if medication present without matching condition):
+  * ACE inhibitors (Lisinopril, Enalapril, Ramipril) → requires Hypertension, Heart Failure, or CKD
+  * Metformin → requires Type 2 Diabetes or Prediabetes
+  * Statins (Atorvastatin, Rosuvastatin, Simvastatin) → requires Hyperlipidemia or Cardiovascular Disease
+  * Beta-blockers (Metoprolol, Carvedilol) → requires Hypertension, Heart Failure, or Arrhythmia
+  * Insulin → requires Type 1 or Type 2 Diabetes
+  * Levothyroxine → requires Hypothyroidism
+- Flag missing condition as severity "medium". Flag if both a medication AND its contraindicated condition are present (e.g., Metformin + eGFR < 30) as severity "high".
 
 TIMELINESS (0-100):
 - 100 if last_updated within 30 days

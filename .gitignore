@@ -1,4 +1,4 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
@@ -8,22 +8,22 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Virtual environments
+# ── Virtual environments ──────────────────────────────────────────────────────
 .venv/
 venv/
 env/
 
-# Frontend
+# ── Frontend build output ─────────────────────────────────────────────────────
 node_modules/
 dist/
 .vite/
 
-# Environment secrets (keep .env.example files)
+# ── Environment secrets (keep .env.example files) ─────────────────────────────
 .env
 backend/.env
 frontend/.env
 
-# OS / Editor
+# ── OS / Editor ───────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 .vscode/
@@ -31,4 +31,13 @@ Thumbs.db
 *.swp
 *.swo
 *~
-.claude/settings.json
+
+# ── Claude Code CLI tooling (local-only, never committed) ─────────────────────
+# Covers: settings, settings.local, agents/, skills/, projects/ (memory)
+.claude/
+
+# ── Assessment artefacts (local reference only) ───────────────────────────────
+CLAUDE.md
+"Full Stack Developer - EHR Integration Intern Code Assessment.pdf"
+architecture_diagram.md
+test_data/oldexamples.json
