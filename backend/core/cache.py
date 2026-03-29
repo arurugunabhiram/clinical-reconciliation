@@ -1,38 +1,53 @@
-"""Simple in-memory LRU cache for reconciliation results."""
+"""In-memory response cache with 5-minute TTL.
+
+Uses a plain Python dict — no external dependencies.
+This cache is in-memory only and resets on every server restart.
+"""
 
 from __future__ import annotations
 
 import hashlib
 import json
-from collections import OrderedDict
+import time
 from typing import Any
 
-_DEFAULT_MAX = 256
+_TTL_SECONDS = 300  # 5 minutes
 
 
-class LRUCache:
-    def __init__(self, max_size: int = _DEFAULT_MAX) -> None:
-        self._store: OrderedDict[str, Any] = OrderedDict()
-        self._max = max_size
+def make_key(body: dict) -> str:
+    """SHA-256 hash of the deterministically serialised request body."""
+    raw = json.dumps(body, sort_keys=True, default=str)
+    return hashlib.sha256(raw.encode()).hexdigest()
 
-    @staticmethod
-    def _make_key(data: dict) -> str:
-        raw = json.dumps(data, sort_keys=True, default=str)
-        return hashlib.sha256(raw.encode()).hexdigest()
 
-    def get(self, data: dict) -> Any | None:
-        key = self._make_key(data)
-        if key in self._store:
-            self._store.move_to_end(key)
-            return self._store[key]
-        return None
+class ResponseCache:
+    """Plain-dict cache that stores (timestamp, result) tuples and evicts on TTL."""
 
-    def set(self, data: dict, value: Any) -> None:
-        key = self._make_key(data)
-        self._store[key] = value
-        self._store.move_to_end(key)
-        if len(self._store) > self._max:
-            self._store.popitem(last=False)
+    _MAX_SIZE = 256
+
+    def __init__(self) -> None:
+        self._store: dict[str, tuple[float, Any]] = {}
+
+    def get(self, body: dict) -> Any | None:
+        """Return cached result for *body*, or None if missing or older than 5 minutes."""
+        key = make_key(body)
+        entry = self._store.get(key)
+        if entry is None:
+            return None
+        timestamp, result = entry
+        if time.time() - timestamp > _TTL_SECONDS:
+            del self._store[key]
+            return None
+        return result
+
+    def set(self, body: dict, result: Any) -> None:
+        """Store *result* under the hash of *body* with the current timestamp."""
+        key = make_key(body)
+        self._store[key] = (time.time(), result)
+        if len(self._store) > self._MAX_SIZE:
+            # Evict the oldest entry by timestamp
+            oldest_key = min(self._store, key=lambda k: self._store[k][0])
+            del self._store[oldest_key]
 
     def clear(self) -> None:
         self._store.clear()
@@ -41,4 +56,5 @@ class LRUCache:
         return len(self._store)
 
 
-reconcile_cache = LRUCache()
+# Module-level singleton shared across all requests.
+response_cache = ResponseCache()

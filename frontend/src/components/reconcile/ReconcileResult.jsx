@@ -1,125 +1,164 @@
-import { useState } from "react";
-import ConfidenceBadge from "../shared/ConfidenceBadge";
+import { useState, useEffect } from "react";
 import useApproval from "../../hooks/useApproval";
+import ConfidenceRing from "../shared/ConfidenceRing";
+import OutputModeToggle from "../shared/OutputModeToggle";
+import JsonViewer from "../shared/JsonViewer";
+import ApproveRejectBar from "../shared/ApproveRejectBar";
 
-const safetyColors = {
-  PASSED: "bg-green-100 text-green-800 border-green-300",
-  WARNING: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  FAILED: "bg-red-100 text-red-800 border-red-300",
-};
+function SafetyBadge({ value }) {
+  const passed = value === "PASSED";
+  const isReview = value === "REVIEW_REQUIRED";
+  if (passed) {
+    return (
+      <span className="inline-flex items-center gap-2 px-4 py-3 rounded-lg bg-green-50 border border-green-200 text-green-700 font-medium" style={{ fontSize: "15px" }}>
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+        Passed
+      </span>
+    );
+  }
+  if (isReview) {
+    return (
+      <span className="inline-flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 font-medium" style={{ fontSize: "15px" }}>
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        Review Required
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-2 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 font-medium" style={{ fontSize: "15px" }}>
+      Action Required
+    </span>
+  );
+}
 
 export default function ReconcileResult({ data }) {
-  const { result, patient_id, source_count, llm_used } = data;
+  const [outputMode, setOutputMode] = useState("visual");
+  const [visible, setVisible] = useState(false);
   const { status, approve, reject } = useApproval();
-  const [copied, setCopied] = useState(false);
 
-  const copyJson = () => {
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 30);
+    return () => clearTimeout(t);
+  }, []);
 
   return (
-    <div className="mt-6 bg-white rounded-lg shadow border border-gray-200 divide-y divide-gray-100">
-      {/* Header */}
-      <div className="px-6 py-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {result.reconciled_medication}
-          </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Patient {patient_id} &middot; {source_count} sources compared
-            {llm_used && (
-              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-700">
-                LLM
-              </span>
-            )}
-          </p>
-        </div>
-        <ConfidenceBadge score={result.confidence_score} />
-      </div>
-
-      {/* Confidence bar */}
-      <div className="px-6 py-3">
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>Confidence</span>
-          <span>{Math.round(result.confidence_score * 100)}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${
-              result.confidence_score >= 0.75
-                ? "bg-green-500"
-                : result.confidence_score >= 0.5
-                ? "bg-yellow-500"
-                : "bg-red-500"
-            }`}
-            style={{ width: `${result.confidence_score * 100}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Safety check */}
-      <div className="px-6 py-3">
-        <span className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-medium border ${safetyColors[result.clinical_safety_check] || ""}`}>
-          Safety: {result.clinical_safety_check}
-        </span>
-      </div>
-
-      {/* Reasoning */}
-      <div className="px-6 py-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-1">Reasoning</h4>
-        <p className="text-sm text-gray-600 leading-relaxed">{result.reasoning}</p>
-      </div>
-
-      {/* Recommended actions */}
-      <div className="px-6 py-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-2">Recommended Actions</h4>
-        <ul className="list-disc list-inside space-y-1">
-          {result.recommended_actions.map((action, i) => (
-            <li key={i} className="text-sm text-gray-600">{action}</li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Copy JSON */}
-      <div className="px-6 py-3 flex justify-end">
-        <button
-          onClick={copyJson}
-          className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors"
-        >
-          {copied ? "Copied!" : "Copy JSON"}
-        </button>
-      </div>
-
-      {/* Approve / Reject */}
-      <div className="px-6 py-4">
-        {status === null ? (
-          <div className="flex gap-3">
-            <button
-              onClick={() => approve(result)}
-              className="flex-1 bg-green-600 text-white py-2 rounded-md font-medium hover:bg-green-700 transition-colors"
+    <div
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(12px)",
+        transition: "opacity 200ms ease, transform 200ms ease",
+      }}
+    >
+      <div
+        className="bg-white rounded-lg border border-gray-200 overflow-hidden"
+        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)" }}
+      >
+        {/* Result header strip */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold uppercase tracking-widest text-gray-500 mb-2" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+              Reconciled Medication
+            </p>
+            <span
+              className="inline-block px-4 py-2 rounded-md text-white font-semibold"
+              style={{ backgroundColor: "#0d9488", fontSize: "15px" }}
             >
-              Approve
-            </button>
-            <button
-              onClick={() => reject(result)}
-              className="flex-1 bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 transition-colors"
-            >
-              Reject
-            </button>
+              {data.reconciled_medication || "—"}
+            </span>
+            <p className="mt-2 text-gray-400" style={{ fontSize: "12px" }}>
+              AI-assisted reconciliation
+            </p>
           </div>
-        ) : (
-          <div
-            className={`text-center py-2 rounded-md font-medium ${
-              status === "approved"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-red-50 text-red-700 border border-red-200"
-            }`}
-          >
-            {status === "approved" ? "Approved" : "Rejected"}
+          <ConfidenceRing score={data.confidence_score ?? 0} />
+        </div>
+
+        {/* Output mode toggle */}
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <span className="font-semibold uppercase tracking-widest text-gray-400" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+            Results
+          </span>
+          <OutputModeToggle mode={outputMode} onChange={setOutputMode} />
+        </div>
+
+        <div className="p-5">
+          {outputMode === "visual" ? (
+            <div className="grid gap-6" style={{ gridTemplateColumns: "2fr 1fr" }}>
+              {/* Left column */}
+              <div className="space-y-6">
+                {/* Clinical Reasoning */}
+                <div>
+                  <p className="font-semibold uppercase tracking-widest mb-3" style={{ fontSize: "11px", letterSpacing: "0.08em", color: "#0d9488" }}>
+                    Clinical Reasoning
+                  </p>
+                  <div
+                    className="bg-white rounded-md px-4 py-3 border border-gray-100"
+                    style={{ borderLeft: "3px solid #99f6e4", lineHeight: "1.7", fontSize: "15px", color: "#334155" }}
+                  >
+                    {data.reasoning || "No reasoning provided."}
+                  </div>
+                </div>
+
+                {/* Recommended Actions */}
+                {data.recommended_actions && data.recommended_actions.length > 0 && (
+                  <div>
+                    <p className="font-semibold uppercase tracking-widest text-gray-500 mb-3" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+                      Recommended Actions
+                    </p>
+                    <ol className="space-y-2">
+                      {data.recommended_actions.map((action, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <span
+                            className="flex-shrink-0 inline-flex items-center justify-center rounded-full font-medium"
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              fontSize: "12px",
+                              backgroundColor: "#f0fdfa",
+                              color: "#0d9488",
+                            }}
+                          >
+                            {i + 1}
+                          </span>
+                          <span className="text-gray-700" style={{ fontSize: "14px" }}>{action}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+
+              {/* Right column */}
+              <div className="space-y-4">
+                <div
+                  className="bg-white rounded-lg border border-gray-200 p-4"
+                  style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}
+                >
+                  <p className="font-semibold uppercase tracking-widest text-gray-500 mb-3 text-center" style={{ fontSize: "11px", letterSpacing: "0.08em" }}>
+                    Safety Status
+                  </p>
+                  <div className="flex justify-center">
+                    <SafetyBadge value={data.clinical_safety_check} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <JsonViewer data={data} />
+          )}
+
+          {/* Approve/Reject bar */}
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <ApproveRejectBar
+              status={status}
+              onApprove={() => approve(data)}
+              onReject={() => reject(data)}
+            />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

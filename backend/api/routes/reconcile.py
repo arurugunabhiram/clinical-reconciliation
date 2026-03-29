@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.middleware.auth import verify_api_key
-from core.cache import reconcile_cache
+from core.cache import response_cache
 from core.reconciler import reconcile_medications, sources_agree
-from llm.client import llm_reconcile
+from llm.client import AIServiceError, llm_reconcile
 from llm.parser import LLMParseError
 from schemas.reconcile import ReconcileRequest, ReconcileResponse
 
@@ -23,32 +24,26 @@ async def reconcile_medication(
     body: ReconcileRequest,
     _key: str = Depends(verify_api_key),
 ):
-    # Check cache
     cache_key = body.model_dump()
-    cached = reconcile_cache.get(cache_key)
-    if cached:
+
+    cached = response_cache.get(cache_key)
+    if cached is not None:
         return cached
 
-    # Deterministic baseline (always available as fallback)
     det_result = reconcile_medications(body.sources, body.patient_context)
-    llm_used = False
 
     if not sources_agree(body.sources):
-        # Sources conflict → try LLM for clinical reasoning
         try:
-            result = llm_reconcile(body.sources, body.patient_context)
-            llm_used = True
-        except (LLMParseError, RuntimeError) as exc:
-            logger.exception("LLM reconciliation failed, using deterministic fallback")
+            result = await llm_reconcile(body.sources, body.patient_context)
+        except (LLMParseError, AIServiceError) as exc:
+            logger.warning("LLM failed, using deterministic fallback: %s", exc)
             result = det_result
+        except Exception as exc:
+            logger.exception("Unexpected error in reconciliation")
+            raise HTTPException(status_code=500, detail="Internal server error") from exc
     else:
         result = det_result
 
-    response = ReconcileResponse(
-        patient_id=body.patient_id,
-        result=result,
-        source_count=len(body.sources),
-        llm_used=llm_used,
-    )
-    reconcile_cache.set(cache_key, response)
-    return response
+    response_cache.set(cache_key, result)
+    asyncio.create_task(dispatch("reconciliation.complete", result.model_dump()))
+    return result

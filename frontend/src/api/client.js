@@ -1,32 +1,51 @@
-if (!(import.meta.env.VITE_API_KEY || "").trim()) {
-  console.warn("[api/client] VITE_API_KEY is not set. API calls will fail until it is added to frontend/.env.");
+function formatApiError(err, status) {
+  const detail = err?.detail;
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((d) => {
+        const path = Array.isArray(d?.loc) ? d.loc.join(".") : "request";
+        const msg = d?.msg || "Invalid value";
+        return `${path}: ${msg}`;
+      })
+      .join("; ");
+  }
+
+  return err?.detail?.error?.message || detail || `HTTP ${status}`;
 }
 
-async function request(path, body) {
-  const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
-  const API_KEY = (import.meta.env.VITE_API_KEY || "").trim();
-  if (!API_KEY) {
-    throw new Error("VITE_API_KEY is not set. Add it to frontend/.env and restart.");
+async function request(path, body, apiKey) {
+  const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080").trim();
+  if (!apiKey) {
+    throw new Error("Please enter your API key above before submitting");
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": API_KEY,
-    },
-    body: JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": apiKey,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (_networkErr) {
+    throw new Error(
+      `Cannot reach API at ${BASE_URL}. ` +
+        "Make sure the backend is running."
+    );
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err?.detail?.error?.message || err?.detail || `HTTP ${res.status}`);
+    throw new Error(formatApiError(err, res.status));
   }
   return res.json();
 }
 
-export function reconcileMedication(payload) {
-  return request("/api/reconcile/medication", payload);
+export function reconcileMedication(payload, apiKey) {
+  return request("/api/reconcile/medication", payload, apiKey);
 }
 
-export function validateDataQuality(payload) {
-  return request("/api/validate/data-quality", payload);
+export function validateDataQuality(payload, apiKey) {
+  return request("/api/validate/data-quality", payload, apiKey);
 }

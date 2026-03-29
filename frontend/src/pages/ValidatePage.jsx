@@ -1,21 +1,32 @@
 import { useState } from "react";
 import PatientRecordForm from "../components/validate/PatientRecordForm";
 import QualityScoreCard from "../components/validate/QualityScoreCard";
-import LoadingSpinner from "../components/shared/LoadingSpinner";
 import { validateDataQuality } from "../api/client";
 
-export default function ValidatePage() {
+function SkeletonLoader() {
+  return (
+    <div className="mt-6 bg-white rounded-lg border border-gray-200 p-5 space-y-3" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <div className="h-4 rounded bg-gray-200 animate-pulse" style={{ width: "100%" }} />
+      <div className="h-4 rounded bg-gray-200 animate-pulse" style={{ width: "80%" }} />
+      <div className="h-4 rounded bg-gray-200 animate-pulse" style={{ width: "60%" }} />
+    </div>
+  );
+}
+
+export default function ValidatePage({ apiKey }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [resultKey, setResultKey] = useState(0);
 
   async function handleSubmit(payload) {
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const data = await validateDataQuality(payload);
+      const data = await validateDataQuality(payload, apiKey);
       setResult(data);
+      setResultKey((k) => k + 1);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -25,14 +36,36 @@ export default function ValidatePage() {
 
   return (
     <div>
-      <PatientRecordForm onSubmit={handleSubmit} loading={loading} />
-      {loading && <LoadingSpinner />}
-      {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
-          {error}
+      {!apiKey && (
+        <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-md bg-amber-50 border border-amber-200">
+          <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <span className="text-sm text-amber-700">
+            API key required — enter your key in the top-right corner
+          </span>
         </div>
       )}
-      {result && <QualityScoreCard data={result} />}
+
+      <PatientRecordForm onSubmit={handleSubmit} loading={loading} />
+
+      {loading && <SkeletonLoader />}
+
+      {error && !loading && (
+        <div className="mt-4 flex items-start gap-3 px-4 py-3 bg-white border-l-4 border-red-500 rounded-md" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="12" cy="12" r="10" /><path d="M12 8v4m0 4h.01" />
+          </svg>
+          <span className="text-sm text-gray-700 flex-1">{error}</span>
+          <button type="button" onClick={() => setError(null)} className="text-sm text-gray-400 hover:text-gray-600">Dismiss</button>
+        </div>
+      )}
+
+      {result && !loading && (
+        <div className="mt-6">
+          <QualityScoreCard key={resultKey} data={result} />
+        </div>
+      )}
     </div>
   );
 }
