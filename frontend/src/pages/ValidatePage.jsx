@@ -24,7 +24,7 @@ export default function ValidatePage({ apiKey }) {
   const [patientName, setPatientName] = useState(null);
   const [validatePayload, setValidatePayload] = useState(null);
 
-  const { status, approve, reject } = useApproval(recordId, patientName, "validate", validatePayload);
+  const { status, approve, reject } = useApproval(recordId, patientName, "validate", validatePayload, recordId);
 
   async function handleSubmit(payload) {
     setLoading(true);

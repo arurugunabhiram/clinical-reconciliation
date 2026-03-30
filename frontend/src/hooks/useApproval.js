@@ -1,8 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function useApproval(recordId, patientName, page, payload) {
+export default function useApproval(recordId, patientName, page, payload, resultId) {
   const [status, setStatus] = useState(null); // null | "approved" | "rejected"
+
+  useEffect(() => {
+    setStatus(null);
+  }, [resultId]);
 
   const approve = useCallback(async () => {
     setStatus("approved");
