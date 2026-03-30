@@ -32,12 +32,3 @@ Thumbs.db
 *.swo
 *~
 
-# ── Claude Code CLI tooling (local-only, never committed) ─────────────────────
-# Covers: settings, settings.local, agents/, skills/, projects/ (memory)
-.claude/
-
-# ── Assessment artefacts (local reference only) ───────────────────────────────
-CLAUDE.md
-"Full Stack Developer - EHR Integration Intern Code Assessment.pdf"
-architecture_diagram.md
-test_data/oldexamples.json

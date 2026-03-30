@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import useApproval from "../../hooks/useApproval";
 import ConfidenceRing from "../shared/ConfidenceRing";
 import OutputModeToggle from "../shared/OutputModeToggle";
@@ -40,13 +40,13 @@ export default function ReconcileResult({ data, resultId }) {
   const [visible, setVisible] = useState(false);
   const recordId = data.reconciled_medication?.slice(0, 30);
   const patientName = data.reconciled_medication?.split(" ").slice(0, 3).join(" ");
-  const reconcilePayload = {
+  const reconcilePayload = useMemo(() => ({
     reconciled_medication: data.reconciled_medication,
     confidence: data.confidence_score,
     safety_status: data.clinical_safety_check,
     clinical_reasoning: data.reasoning,
     recommended_actions: data.recommended_actions,
-  };
+  }), [data]);
   const { status, approve, reject } = useApproval(recordId, patientName, "reconcile", reconcilePayload, resultId);
 
   useEffect(() => {
