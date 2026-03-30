@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { NavLink } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
+import DecisionDetailModal from "../shared/DecisionDetailModal";
 
 const LS_KEY = "clinical_api_key";
 
@@ -8,6 +9,7 @@ export default function Navbar({ apiKey, setApiKey }) {
   const [counts, setCounts] = useState({ approved: 0, rejected: 0 });
   const [openDropdown, setOpenDropdown] = useState(null); // 'approved' | 'rejected' | null
   const [rows, setRows] = useState([]);
+  const [selectedRecord, setSelectedRecord] = useState(null);
   const [loadingRows, setLoadingRows] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -45,7 +47,7 @@ export default function Navbar({ apiKey, setApiKey }) {
     setLoadingRows(true);
     supabase
       .from("decisions")
-      .select("patient_name, page, created_at")
+      .select("id, patient_name, page, created_at, payload")
       .eq("decision", openDropdown)
       .order("created_at", { ascending: false })
       .limit(20)
@@ -82,6 +84,7 @@ export default function Navbar({ apiKey, setApiKey }) {
   }
 
   return (
+    <>
     <nav className="bg-white border-b" style={{ height: "56px", borderColor: "#e2e8f0", zIndex: 40 }}>
       <div className="max-w-[1100px] mx-auto px-6 h-full" style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center" }}>
 
@@ -142,7 +145,7 @@ export default function Navbar({ apiKey, setApiKey }) {
                 ) : (
                   <div style={{ maxHeight: "280px", overflowY: "auto" }}>
                     {rows.map((row, i) => (
-                      <div key={i} style={{ padding: "9px 14px", borderBottom: i < rows.length - 1 ? "0.5px solid #f1f5f9" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+                      <div key={i} onClick={() => { setSelectedRecord(row); setOpenDropdown(null); }} style={{ padding: "9px 14px", borderBottom: i < rows.length - 1 ? "0.5px solid #f1f5f9" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", cursor: "pointer" }} onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={(e) => e.currentTarget.style.background = ""}>
                         <div style={{ minWidth: 0 }}>
                           <p style={{ fontSize: "13px", fontWeight: 500, color: "#1e293b", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.patient_name || "Unknown"}</p>
                           <p style={{ fontSize: "11px", color: "#94a3b8", margin: "2px 0 0" }}>{formatTime(row.created_at)}</p>
@@ -174,5 +177,12 @@ export default function Navbar({ apiKey, setApiKey }) {
 
       </div>
     </nav>
+    {selectedRecord && (
+      <DecisionDetailModal
+        record={selectedRecord}
+        onClose={() => setSelectedRecord(null)}
+      />
+    )}
+    </>
   );
 }

@@ -20,6 +20,8 @@ const noopClient = {
   removeChannel: () => {},
 };
 
+// In production, real Supabase credentials are injected via Vercel env vars.
+// Locally, if the vars are absent, the noopClient above silences all calls.
 export const supabase =
   supabaseUrl && supabaseAnonKey
     ? createClient(supabaseUrl, supabaseAnonKey)

@@ -4,6 +4,24 @@ An AI-powered full-stack application that resolves conflicting medication record
 
 ---
 
+## Live Demo
+https://clinical-reconciliation.vercel.app
+
+| Route | URL |
+|---|---|
+| Medication Reconciliation | https://clinical-reconciliation.vercel.app/reconcile |
+| Data Quality Validation | https://clinical-reconciliation.vercel.app/validate |
+
+---
+
+## Tech Stack
+- **Frontend**: React, Vite, Tailwind CSS, deployed on Vercel
+- **Backend**: FastAPI (Python), deployed separately
+- **Database**: Supabase (PostgreSQL) — stores approval/rejection decisions with full AI output payload
+- **AI**: Anthropic Claude (claude-sonnet-4-20250514)
+
+---
+
 ## Features
 
 - **Medication reconciliation** — submit records from multiple sources (Hospital EHR, Clinic, Pharmacy, Patient Portal) and get a single reconciled medication with clinical reasoning
@@ -96,7 +114,8 @@ cd frontend
 npm install
 
 # Create frontend/.env
-echo "VITE_API_BASE_URL=http://localhost:8080" > .env
+# Use 127.0.0.1 instead of localhost to avoid IPv6 resolution issues on macOS
+echo "VITE_API_BASE_URL=http://127.0.0.1:8080" > .env
 echo "VITE_API_KEY=your-api-key" >> .env
 # Optional — add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for the approve/reject counter
 
@@ -175,6 +194,7 @@ create table decisions (
   patient_name text,
   decision     text        not null check (decision in ('approved', 'rejected')),
   page         text,
+  payload      jsonb,
   created_at   timestamptz not null default now()
 );
 
@@ -231,7 +251,7 @@ A SHA-256-keyed dict with a 5-minute TTL is sufficient for a single-instance dep
 ## What I'd Improve With More Time
 
 - **Streaming responses** — stream Claude's output token-by-token to the frontend so the user sees reasoning appear progressively instead of waiting for the full response
-- **Persistent storage** — replace the in-memory cache with Redis and add a PostgreSQL database to store reconciliation history per patient
+- **Persistent storage** — Supabase is already integrated for approve/reject decision tracking with a full AI output payload audit trail; next steps would be per-user authentication, user-scoped decision logs, and a reconciliation history view per patient
 - **Auth hardening** — replace the static API key with short-lived JWTs, scoped per user or organisation
 - **Confidence calibration** — track approve/reject decisions over time and use the feedback signal to adjust the system prompt or fine-tune a smaller model
 - **Better error taxonomy** — distinguish LLM errors, rate limits, and validation errors more granularly on the frontend so users see actionable messages

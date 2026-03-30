@@ -22,8 +22,9 @@ export default function ValidatePage({ apiKey }) {
   const [resultKey, setResultKey] = useState(0);
   const [recordId, setRecordId] = useState(null);
   const [patientName, setPatientName] = useState(null);
+  const [validatePayload, setValidatePayload] = useState(null);
 
-  const { status, approve, reject } = useApproval(recordId, patientName, "validate");
+  const { status, approve, reject } = useApproval(recordId, patientName, "validate", validatePayload);
 
   async function handleSubmit(payload) {
     setLoading(true);
@@ -38,6 +39,15 @@ export default function ValidatePage({ apiKey }) {
     try {
       const data = await validateDataQuality(payload, apiKey);
       setResult(data);
+      setValidatePayload({
+        overall_score: data.overall_score,
+        quality_grade: data.overall_score >= 70 ? "Good" : data.overall_score >= 40 ? "Fair" : "Poor",
+        safety_status: data.overall_score >= 70 ? "passed" : "review_required",
+        top_issues: (data.issues_detected || [])
+          .sort((a, b) => ({ high: 0, medium: 1, low: 2 }[a.severity] - { high: 0, medium: 1, low: 2 }[b.severity]))
+          .slice(0, 3)
+          .map(i => ({ field: i.field, severity: i.severity, message: i.issue })),
+      });
       setResultKey((k) => k + 1);
     } catch (err) {
       setError(err.message);

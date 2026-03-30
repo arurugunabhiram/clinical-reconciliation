@@ -65,7 +65,7 @@ def test_reconcile_always_returns_result():
 
 
 def test_reconcile_output_matches_assessment_format():
-    """Response must have exactly the 5 fields from the assessment — no extras."""
+    """Response must have all required fields including sources_analyzed and conflicts_found."""
     sources = [
         _src(),
         _src(system="Clinic", medication="Metformin 1000mg twice daily"),
@@ -76,6 +76,8 @@ def test_reconcile_output_matches_assessment_format():
         "reconciled_medication",
         "confidence_score",
         "reasoning",
+        "sources_analyzed",
+        "conflicts_found",
         "recommended_actions",
         "clinical_safety_check",
     }
