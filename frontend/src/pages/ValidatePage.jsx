@@ -88,8 +88,8 @@ export default function ValidatePage({ apiKey }) {
           <QualityScoreCard key={resultKey} data={result} />
           <ApproveRejectBar
             status={status}
-            onApprove={() => approve(result)}
-            onReject={() => reject(result)}
+            onApprove={approve}
+            onReject={reject}
           />
         </div>
       )}

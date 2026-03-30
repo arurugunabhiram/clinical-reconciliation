@@ -163,8 +163,8 @@ export default function ReconcileResult({ data, resultId }) {
           <div className="mt-6 pt-5 border-t border-gray-100">
             <ApproveRejectBar
               status={status}
-              onApprove={() => approve(data)}
-              onReject={() => reject(data)}
+              onApprove={approve}
+              onReject={reject}
             />
           </div>
         </div>
