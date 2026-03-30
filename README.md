@@ -49,12 +49,19 @@ clinical-reconciliation/
 │   ├── src/pages/            # ReconcilePage, ValidatePage
 │   ├── src/components/       # Navbar, forms, result cards, shared UI
 │   ├── src/hooks/            # useApproval (Supabase-backed)
-│   └── src/lib/supabase.js   # Supabase client
+│   ├── src/lib/supabase.js   # Supabase client
+│   └── vercel.json           # Vercel build config and SPA rewrite rules
 ├── docker-compose.yml        # Orchestrates backend + frontend
 └── .env.example              # Root env template
 ```
 
 Backend and frontend run on a shared Docker bridge network. In production the frontend is served by nginx, which also proxies `/api/*` requests to the backend.
+
+---
+
+## Vercel Deployment
+
+In the Vercel dashboard, set Root Directory to `frontend/` before deploying.
 
 ---
 

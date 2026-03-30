@@ -16,24 +16,26 @@ export default function useApproval(recordId, patientName, page, payload, result
   }, [resultId]);
 
   const approve = useCallback(async () => {
-    setStatus("approved");
     try {
       await supabase
         .from("decisions")
         .insert({ record_id: recordId, patient_name: patientName, decision: "approved", page, payload: payloadRef.current });
+      setStatus("approved");
     } catch (err) {
-      console.error("Supabase insert error (approve):", err);
+      setStatus(null);
+      if (import.meta.env.DEV) { console.error("Supabase insert error (approve):", err); }
     }
   }, [recordId, patientName, page]);
 
   const reject = useCallback(async () => {
-    setStatus("rejected");
     try {
       await supabase
         .from("decisions")
         .insert({ record_id: recordId, patient_name: patientName, decision: "rejected", page, payload: payloadRef.current });
+      setStatus("rejected");
     } catch (err) {
-      console.error("Supabase insert error (reject):", err);
+      setStatus(null);
+      if (import.meta.env.DEV) { console.error("Supabase insert error (reject):", err); }
     }
   }, [recordId, patientName, page]);
 
