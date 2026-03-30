@@ -1,7 +1,9 @@
 import { useState } from "react";
 import PatientRecordForm from "../components/validate/PatientRecordForm";
 import QualityScoreCard from "../components/validate/QualityScoreCard";
+import ApproveRejectBar from "../components/shared/ApproveRejectBar";
 import { validateDataQuality } from "../api/client";
+import useApproval from "../hooks/useApproval";
 
 function SkeletonLoader() {
   return (
@@ -18,11 +20,21 @@ export default function ValidatePage({ apiKey }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [resultKey, setResultKey] = useState(0);
+  const [recordId, setRecordId] = useState(null);
+  const [patientName, setPatientName] = useState(null);
+
+  const { status, approve, reject } = useApproval(recordId, patientName, "validate");
 
   async function handleSubmit(payload) {
     setLoading(true);
     setError(null);
     setResult(null);
+    const id =
+      payload?.demographics?.name
+        ? `${payload.demographics.name}-${Date.now()}`
+        : crypto.randomUUID();
+    setRecordId(id);
+    setPatientName(payload?.demographics?.name || "Unknown Patient");
     try {
       const data = await validateDataQuality(payload, apiKey);
       setResult(data);
@@ -62,8 +74,13 @@ export default function ValidatePage({ apiKey }) {
       )}
 
       {result && !loading && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
           <QualityScoreCard key={resultKey} data={result} />
+          <ApproveRejectBar
+            status={status}
+            onApprove={() => approve(result)}
+            onReject={() => reject(result)}
+          />
         </div>
       )}
     </div>

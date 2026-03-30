@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.middleware.auth import verify_api_key
 from core.cache import response_cache
-from core.reconciler import reconcile_medications, sources_agree
+from core.reconciler import reconcile_medications, sources_agree, build_conflicts
 from llm.client import AIServiceError, llm_reconcile
 from llm.parser import LLMParseError
 from schemas.reconcile import ReconcileRequest, ReconcileResponse
@@ -44,6 +43,9 @@ async def reconcile_medication(
     else:
         result = det_result
 
+    # Always stamp these from the request — the LLM path leaves them empty
+    result.sources_analyzed = [s.system for s in body.sources]
+    result.conflicts_found = build_conflicts(body.sources)
+
     response_cache.set(cache_key, result)
-    asyncio.create_task(dispatch("reconciliation.complete", result.model_dump()))
     return result

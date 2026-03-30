@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -53,5 +52,4 @@ async def validate_data_quality(
         issues_detected=quality.issues_detected,
     )
     response_cache.set(cache_key, result)
-    asyncio.create_task(dispatch("validation.complete", result.model_dump()))
     return result
