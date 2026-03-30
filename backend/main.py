@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -38,10 +39,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Read CORS origins from env; only default to "*" in development.
+environment = os.getenv("ENV", "development").strip().lower()
+cors_origins_default = "*" if environment in {"dev", "development", "local"} else ""
+cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", cors_origins_default).split(",")
+    if origin.strip()
+]
+
 # allow_origins=["*"] is incompatible with allow_credentials=True per the CORS spec.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

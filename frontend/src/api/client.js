@@ -15,7 +15,13 @@ function formatApiError(err, status) {
 }
 
 async function request(path, body, apiKey) {
-  const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080").trim();
+  const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!rawBaseUrl || !rawBaseUrl.trim()) {
+    throw new Error(
+      "VITE_API_BASE_URL is not defined. Set it in the frontend environment before running the app."
+    );
+  }
+  const BASE_URL = rawBaseUrl.trim();
   if (!apiKey) {
     throw new Error("Please enter your API key above before submitting");
   }
