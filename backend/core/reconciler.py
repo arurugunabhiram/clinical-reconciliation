@@ -33,6 +33,17 @@ def _effective_date(s: MedicationSource) -> date:
     return max(candidates) if candidates else date.min
 
 
+def build_conflicts(sources: list[MedicationSource]) -> list[str]:
+    """Return human-readable conflict descriptions for every differing source pair."""
+    return [
+        f"{sources[i].system} vs {sources[j].system}: "
+        f'"{sources[i].medication}" vs "{sources[j].medication}"'
+        for i in range(len(sources))
+        for j in range(i + 1, len(sources))
+        if sources[i].medication.strip().lower() != sources[j].medication.strip().lower()
+    ]
+
+
 def sources_agree(sources: list[MedicationSource]) -> bool:
     """Return True if all sources report the same medication string (case-insensitive)."""
     meds = {s.medication.strip().lower() for s in sources}
@@ -153,6 +164,8 @@ def reconcile_medications(
         reconciled_medication=best.medication,
         confidence_score=confidence,
         reasoning=reasoning,
+        sources_analyzed=[s.system for s in sources],
+        conflicts_found=build_conflicts(sources),
         recommended_actions=actions,
         clinical_safety_check=safety,
     )

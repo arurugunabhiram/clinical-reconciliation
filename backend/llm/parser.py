@@ -50,6 +50,10 @@ def parse_reconciliation_response(raw: str) -> ReconcileResponse:
     if raw_safety not in ("PASSED", "REVIEW_REQUIRED"):
         data["clinical_safety_check"] = SafetyStatus.REVIEW_REQUIRED.value
 
+    # LLM doesn't produce these fields — default to empty lists so the schema validates
+    data.setdefault("sources_analyzed", [])
+    data.setdefault("conflicts_found", [])
+
     try:
         return ReconcileResponse.model_validate(data)
     except Exception as exc:

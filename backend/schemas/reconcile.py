@@ -40,5 +40,7 @@ class ReconcileResponse(BaseModel):
     reconciled_medication: str
     confidence_score: float = Field(..., ge=0.0, le=1.0)
     reasoning: str
+    sources_analyzed: list[str] = Field(default_factory=list)
+    conflicts_found: list[str] = Field(default_factory=list)
     recommended_actions: list[str]
     clinical_safety_check: SafetyStatus = SafetyStatus.REVIEW_REQUIRED
