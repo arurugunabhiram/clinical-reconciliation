@@ -148,6 +148,13 @@ export default function MedicationForm({ onSubmit, loading }) {
   function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    if (inputMode === "form") {
+      const filledSources = sources.filter((s) => s.medication.trim());
+      if (filledSources.length < 2) {
+        setError("At least 2 sources must have a medication entered before reconciling.");
+        return;
+      }
+    }
     try {
       const payload = inputMode === "json" ? JSON.parse(jsonValue) : buildFormPayload();
       if (!payload.sources || payload.sources.length < 1) {

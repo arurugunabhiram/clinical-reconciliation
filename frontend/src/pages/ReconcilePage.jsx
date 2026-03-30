@@ -63,7 +63,7 @@ export default function ReconcilePage({ apiKey }) {
 
       {result && !loading && (
         <div className="mt-6">
-          <ReconcileResult key={resultKey} data={result} />
+          <ReconcileResult key={resultKey} data={result} resultId={resultKey} />
         </div>
       )}
     </div>

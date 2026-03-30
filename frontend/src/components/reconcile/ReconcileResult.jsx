@@ -35,7 +35,7 @@ function SafetyBadge({ value }) {
   );
 }
 
-export default function ReconcileResult({ data }) {
+export default function ReconcileResult({ data, resultId }) {
   const [outputMode, setOutputMode] = useState("visual");
   const [visible, setVisible] = useState(false);
   const recordId = data.reconciled_medication?.slice(0, 30);
@@ -47,7 +47,7 @@ export default function ReconcileResult({ data }) {
     clinical_reasoning: data.reasoning,
     recommended_actions: data.recommended_actions,
   };
-  const { status, approve, reject } = useApproval(recordId, patientName, "reconcile", reconcilePayload);
+  const { status, approve, reject } = useApproval(recordId, patientName, "reconcile", reconcilePayload, resultId);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 30);

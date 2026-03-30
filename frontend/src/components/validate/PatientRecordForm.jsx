@@ -106,6 +106,18 @@ export default function PatientRecordForm({ onSubmit, loading }) {
   function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+    if (inputMode === "form") {
+      const missing = [];
+      if (!name.trim()) missing.push("Full Name");
+      if (!dob.trim()) missing.push("Date of Birth");
+      if (!gender) missing.push("Gender");
+      if (!bp.trim()) missing.push("Blood Pressure");
+      if (!hr.trim()) missing.push("Heart Rate");
+      if (missing.length > 0) {
+        setError(`Please fill in required fields: ${missing.join(", ")}.`);
+        return;
+      }
+    }
     try {
       const payload = inputMode === "json" ? JSON.parse(jsonValue) : buildFormPayload();
       onSubmit(payload);
