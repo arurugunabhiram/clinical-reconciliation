@@ -39,7 +39,7 @@ export default function ReconcileResult({ data, resultId }) {
   const [outputMode, setOutputMode] = useState("visual");
   const [visible, setVisible] = useState(false);
   const recordId = data.reconciled_medication?.slice(0, 30);
-  const patientName = data.reconciled_medication?.split(" ").slice(0, 3).join(" ");
+  const patientName = "—";
   const reconcilePayload = useMemo(() => ({
     reconciled_medication: data.reconciled_medication,
     confidence: data.confidence_score,
