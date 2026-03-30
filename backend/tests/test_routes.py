@@ -58,6 +58,8 @@ MOCK_RECONCILED = ReconcileResponse(
     reconciled_medication="Metformin 500mg twice daily",
     confidence_score=0.88,
     reasoning="Primary care record is most recent clinical encounter.",
+    sources_analyzed=["Hospital EHR", "Primary Care", "Pharmacy"],
+    conflicts_found=["Hospital EHR vs Primary Care: \"Metformin 1000mg twice daily\" vs \"Metformin 500mg twice daily\""],
     recommended_actions=["Update Hospital EHR to 500mg twice daily"],
     clinical_safety_check=SafetyStatus.PASSED,
 )
@@ -198,6 +200,8 @@ def test_reconcile_valid_payload_flat_response(mock_llm, client):
         "reconciled_medication",
         "confidence_score",
         "reasoning",
+        "sources_analyzed",
+        "conflicts_found",
         "recommended_actions",
         "clinical_safety_check",
     }

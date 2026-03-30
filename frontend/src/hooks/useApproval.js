@@ -1,32 +1,30 @@
 import { useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function useApproval(recordId, patientName, page) {
+export default function useApproval(recordId, patientName, page, payload) {
   const [status, setStatus] = useState(null); // null | "approved" | "rejected"
 
-  const approve = useCallback(async (result) => {
+  const approve = useCallback(async () => {
     setStatus("approved");
-    console.log("ACTION:", { action: "approved", result });
     try {
       await supabase
         .from("decisions")
-        .insert({ record_id: recordId, patient_name: patientName, decision: "approved", page });
+        .insert({ record_id: recordId, patient_name: patientName, decision: "approved", page, payload });
     } catch (err) {
       console.error("Supabase insert error (approve):", err);
     }
-  }, [recordId, patientName, page]);
+  }, [recordId, patientName, page, payload]);
 
-  const reject = useCallback(async (result) => {
+  const reject = useCallback(async () => {
     setStatus("rejected");
-    console.log("ACTION:", { action: "rejected", result });
     try {
       await supabase
         .from("decisions")
-        .insert({ record_id: recordId, patient_name: patientName, decision: "rejected", page });
+        .insert({ record_id: recordId, patient_name: patientName, decision: "rejected", page, payload });
     } catch (err) {
       console.error("Supabase insert error (reject):", err);
     }
-  }, [recordId, patientName, page]);
+  }, [recordId, patientName, page, payload]);
 
   const reset = useCallback(() => setStatus(null), []);
 

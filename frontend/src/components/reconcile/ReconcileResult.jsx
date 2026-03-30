@@ -40,7 +40,14 @@ export default function ReconcileResult({ data }) {
   const [visible, setVisible] = useState(false);
   const recordId = data.reconciled_medication?.slice(0, 30);
   const patientName = data.reconciled_medication?.split(" ").slice(0, 3).join(" ");
-  const { status, approve, reject } = useApproval(recordId, patientName, "reconcile");
+  const reconcilePayload = {
+    reconciled_medication: data.reconciled_medication,
+    confidence: data.confidence_score,
+    safety_status: data.clinical_safety_check,
+    clinical_reasoning: data.reasoning,
+    recommended_actions: data.recommended_actions,
+  };
+  const { status, approve, reject } = useApproval(recordId, patientName, "reconcile", reconcilePayload);
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 30);
